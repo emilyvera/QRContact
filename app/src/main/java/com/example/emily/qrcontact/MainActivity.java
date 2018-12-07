@@ -26,9 +26,12 @@ import com.google.android.gms.vision.barcode.BarcodeDetector;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import ezvcard.Ezvcard;
 import ezvcard.VCard;
+import ezvcard.android.AndroidCustomFieldScribe;
+import ezvcard.android.ContactOperations;
 import ezvcard.io.text.VCardReader;
 
 public class MainActivity extends AppCompatActivity {
@@ -37,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
     CameraSource cameraSource;
     TextView textView;
     BarcodeDetector barcodeDetector;
+    ArrayList<String> scannedCodes;
 
 
 
@@ -45,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        scannedCodes = new ArrayList<>();
         surfaceView = (SurfaceView) findViewById(R.id.cameraPreview);
         textView = (TextView) findViewById(R.id.textView);
         barcodeDetector = new BarcodeDetector.Builder(this)
@@ -107,9 +111,28 @@ public class MainActivity extends AppCompatActivity {
                             } catch (Exception e) {
                                 Log.d("ScanTest", e.toString());
                             }
-                            textView.setText(qrCodes.valueAt(0).rawValue);
 
-                            VCard scannedContact = Ezvcard.parse(qrCodes.valueAt(0).rawValue).first();
+                            boolean isScanned = false;
+                            textView.setText(qrCodes.valueAt(qrCodes.size() - 1).rawValue);
+                            for (String value : scannedCodes) {
+                                if (qrCodes.valueAt(qrCodes.size() - 1).rawValue.equals(value)) {
+                                    isScanned = true;
+                                    break;
+                                }
+                            }
+                            VCard scannedContact = Ezvcard.parse(qrCodes.valueAt(qrCodes.size() - 1).rawValue).first();
+
+                            if (!isScanned) {
+                                scannedCodes.add(qrCodes.valueAt(qrCodes.size() - 1).rawValue);
+                                ContactOperations operations = new ContactOperations(MainActivity.this, null, null);
+                                try {
+                                    operations.insertContact(scannedContact);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+
+
                             Log.d("ScanTest", scannedContact.getEmails().get(0).toString());
 
 

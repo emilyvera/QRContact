@@ -99,7 +99,7 @@ public class Make extends AppCompatActivity {
         final ListView profileList = findViewById(R.id.profileList);
         final Button saveProfile = findViewById(R.id.saveProfile);
         final Button chooseProfile = findViewById(R.id.chooseProfile);
-        final List<Profile> profileArrayList = loadData();
+        final List<Profile> profileArrayList = new ArrayList<>();
 
         final ConstraintLayout profileLayout = findViewById(R.id.profileLayout);
 
@@ -173,8 +173,7 @@ public class Make extends AppCompatActivity {
 
 
                 profileArrayList.add(toAddToList);
-                saveData(profileArrayList);
-                Log.d("Persistence", "Saved Data");
+                //Log.d("Persistence", "Saved Data");
             }
         });
 
