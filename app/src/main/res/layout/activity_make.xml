@@ -62,8 +62,8 @@
 
             <EditText
                 android:id="@+id/firstName"
-                android:layout_width="160sp"
-                android:layout_height="45sp"
+                android:layout_width="160dp"
+                android:layout_height="45dp"
                 android:ems="10"
                 android:hint="First Name"
                 android:inputType="textPersonName"

@@ -1,7 +1,9 @@
 package com.example.emily.qrcontact;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -52,6 +54,8 @@ public class MainActivity extends AppCompatActivity {
         scannedCodes = new ArrayList<>();
         surfaceView = (SurfaceView) findViewById(R.id.cameraPreview);
         textView = (TextView) findViewById(R.id.textView);
+
+
         barcodeDetector = new BarcodeDetector.Builder(this)
                 .setBarcodeFormats(Barcode.QR_CODE).build();
 
@@ -113,23 +117,49 @@ public class MainActivity extends AppCompatActivity {
                             }
 
                             boolean isScanned = false;
-                            textView.setText(qrCodes.valueAt(qrCodes.size() - 1).rawValue);
                             for (String value : scannedCodes) {
                                 if (qrCodes.valueAt(qrCodes.size() - 1).rawValue.equals(value)) {
                                     isScanned = true;
                                     break;
                                 }
                             }
-                            VCard scannedContact = Ezvcard.parse(qrCodes.valueAt(qrCodes.size() - 1).rawValue).first();
+                            final VCard scannedContact = Ezvcard.parse(qrCodes.valueAt(qrCodes.size() - 1).rawValue).first();
 
                             if (!isScanned) {
                                 scannedCodes.add(qrCodes.valueAt(qrCodes.size() - 1).rawValue);
-                                ContactOperations operations = new ContactOperations(MainActivity.this, null, null);
-                                try {
-                                    operations.insertContact(scannedContact);
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
+
+                                final DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        switch (which){
+                                            case DialogInterface.BUTTON_POSITIVE:
+                                                ContactOperations operations = new ContactOperations(MainActivity.this, null, null);
+                                                try {
+                                                    operations.insertContact(scannedContact);
+                                                } catch (Exception e) {
+                                                    e.printStackTrace();
+                                                }
+                                                textView.setText("Added " + qrCodes.valueAt(qrCodes.size() - 1).displayValue);
+
+                                                dialog.dismiss();
+                                                break;
+
+                                            case DialogInterface.BUTTON_NEGATIVE:
+                                                textView.setText("Did not add " + qrCodes.valueAt(qrCodes.size() - 1).displayValue);
+                                                scannedCodes.remove(scannedCodes.size() - 1);
+                                                dialog.dismiss();
+                                                break;
+                                        }
+                                    }
+                                };
+
+
+                                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                                builder.setMessage("Do you want to add " + qrCodes.valueAt(qrCodes.size() - 1).displayValue + " to your contacts")
+                                        .setPositiveButton("Yes", dialogClickListener)
+                                        .setNegativeButton("No", dialogClickListener).show();
+
+
                             }
 
 
