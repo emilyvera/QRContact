@@ -2,6 +2,7 @@ package com.example.emily.qrcontact;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout;
@@ -20,6 +21,12 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+
+import com.google.android.gms.common.api.Response;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.squareup.picasso.Picasso;
@@ -57,6 +64,7 @@ public class Make extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 VCard vcard = makeVCard(firstName, lastName, email, phone);
+
                 String fullContact = Ezvcard.write(vcard).version(VCardVersion.V3_0).go();
 
                 fullContact = getUrlVCard(vcard);
@@ -99,7 +107,17 @@ public class Make extends AppCompatActivity {
         final ListView profileList = findViewById(R.id.profileList);
         final Button saveProfile = findViewById(R.id.saveProfile);
         final Button chooseProfile = findViewById(R.id.chooseProfile);
-        final List<Profile> profileArrayList = new ArrayList<>();
+        ArrayList<Profile> initialArrayList = new ArrayList<>();
+        try {
+            if (getArrayList("Profiles") != null) {
+                initialArrayList = getArrayList("Profiles");
+            }
+        } catch (Exception e) {
+            Log.d("Persistence", e.toString() + "\n");
+            e.printStackTrace();
+        }
+        final ArrayList<Profile> profileArrayList = initialArrayList;
+
 
         final ConstraintLayout profileLayout = findViewById(R.id.profileLayout);
 
@@ -129,10 +147,10 @@ public class Make extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView parent, View view, int position, long id) {
                 Profile temp = profileArrayList.get(position);
-                firstName.setText(temp.getvCard().getStructuredName().getGiven());
-                lastName.setText(temp.getvCard().getStructuredName().getFamily());
-                email.setText(temp.getvCard().getEmails().get(0).getValue());
-                phone.setText(temp.getvCard().getTelephoneNumbers().get(0).getText());
+                firstName.setText(temp.getVCard().getStructuredName().getGiven());
+                lastName.setText(temp.getVCard().getStructuredName().getFamily());
+                email.setText(temp.getVCard().getEmails().get(0).getValue());
+                phone.setText(temp.getVCard().getTelephoneNumbers().get(0).getText());
                 profileName.setText(temp.getProfileName());
 
                 profileLayout.setVisibility(View.VISIBLE);
@@ -173,6 +191,8 @@ public class Make extends AppCompatActivity {
 
 
                 profileArrayList.add(toAddToList);
+                saveArrayList(profileArrayList, "Profiles");
+
                 //Log.d("Persistence", "Saved Data");
             }
         });
@@ -182,41 +202,22 @@ public class Make extends AppCompatActivity {
 
     }
 
-    private void saveData(List<Profile> profileArrayList) {
-        SharedPreferences sharedPreferences = getSharedPreferences("shared preferences", MODE_PRIVATE);
-        Log.d("Persistence", "Make Shared Pref");
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        Log.d("Persistence", "Make Editor");
+    private void saveArrayList(ArrayList<Profile> profileArrayList, String key) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
+        SharedPreferences.Editor editor = prefs.edit();
         Gson gson = new Gson();
-        Log.d("Persistence", "Made Gson");
         String json = gson.toJson(profileArrayList);
-        Log.d("Persistence", "Made Json");
-        editor.putString("task list", json);
-        Log.d("Persistence", "Put Json");
-
-        editor.apply();
-        Log.d("Persistence", "Applied");
+        editor.putString(key, json);
+        editor.commit();
     }
 
-    private ArrayList<Profile> loadData() {
-        try {
-            ArrayList<Profile>  profileArrayList = new ArrayList<>();
-            SharedPreferences sharedPreferences = getSharedPreferences("shared preferences", MODE_PRIVATE);
-            Gson gson = new Gson();
-            String json = sharedPreferences.getString("task list", null);
-            Type type = new TypeToken<ArrayList<Profile>>() {}.getType();
-            profileArrayList = gson.fromJson(json, type);
-
-            if (profileArrayList == null) {
-                profileArrayList = new ArrayList<>();
-            }
-
-            return profileArrayList;
-        } catch (Exception e) {
-            Log.d("Persistence", e.toString());
-        }
-
-        return new ArrayList<Profile>();
+    private ArrayList<Profile> getArrayList(String key) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        Gson gson = new Gson();
+        String json = prefs.getString(key, null);
+        Type type = new TypeToken<ArrayList<Profile>>() {}.getType();
+        Log.d("Persistence",type.toString());
+        return gson.fromJson(json, type);
     }
 
     private String getUrlVCard(VCard vCard) {
@@ -265,22 +266,61 @@ public class Make extends AppCompatActivity {
         return vcard;
     }
 
-    public class Profile {
+    private VCard makeVCard(String firstName, String lastName, String email, String phone) {
+        VCard vcard = new VCard();
+        StructuredName fullName = new StructuredName();
+        fullName.setFamily(lastName);
+        fullName.setGiven(firstName);
+        vcard.setStructuredName(fullName);
+        vcard.addEmail(email, EmailType.WORK);
+        vcard.addTelephoneNumber(phone);
+        return vcard;
+    }
+
+    public class Profile implements Serializable {
 
         private VCard vCard;
         private String profileName;
 
-        public VCard getvCard() {
+        public VCard getVCard() {
             return vCard;
+        }
+
+        public void setVCard(VCard toSet) {
+            if (toSet != null) {
+                vCard = toSet;
+            }
         }
 
         public String getProfileName() {
             return profileName;
         }
 
+        public void setProfileName(String toSet) {
+            if (toSet != null) {
+                profileName = toSet;
+            }
+        }
+
         public Profile(VCard toVCard, String toProfileName) {
+            super();
             vCard = toVCard;
+
             profileName = toProfileName;
+        }
+
+        private void readObject(ObjectInputStream aInputStream) throws ClassNotFoundException, IOException {
+            vCard = makeVCard(aInputStream.readUTF(), aInputStream.readUTF(), aInputStream.readUTF(), aInputStream.readUTF());
+            profileName = aInputStream.readUTF();
+
+        }
+
+        private void writeObject(ObjectOutputStream aOutputStream)throws IOException {
+            aOutputStream.writeUTF(vCard.getStructuredName().getGiven());
+            aOutputStream.writeUTF(vCard.getStructuredName().getFamily());
+            aOutputStream.writeUTF(vCard.getEmails().get(0).toString());
+            aOutputStream.writeUTF(vCard.getTelephoneNumbers().get(0).toString());
+            aOutputStream.writeUTF(profileName);
         }
 
         public boolean equals(Object toCompare) {
@@ -290,13 +330,13 @@ public class Make extends AppCompatActivity {
 
             Profile newCompare = (Profile) toCompare;
             String firstName = nullToEmpty(vCard.getStructuredName().getGiven());
-            String toCompareFirstName = nullToEmpty(newCompare.getvCard().getStructuredName().getGiven());
+            String toCompareFirstName = nullToEmpty(newCompare.getVCard().getStructuredName().getGiven());
             String lastName = nullToEmpty(vCard.getStructuredName().getFamily());
-            String toCompareLastName = nullToEmpty(newCompare.getvCard().getStructuredName().getGiven());
+            String toCompareLastName = nullToEmpty(newCompare.getVCard().getStructuredName().getGiven());
             String email = nullToEmpty(vCard.getEmails().get(0).getValue());
-            String toCompareEmail = nullToEmpty(newCompare.getvCard().getEmails().get(0).getValue());
+            String toCompareEmail = nullToEmpty(newCompare.getVCard().getEmails().get(0).getValue());
             String phone = nullToEmpty(vCard.getTelephoneNumbers().get(0).getText());
-            String toComparePhone = nullToEmpty(newCompare.getvCard().getTelephoneNumbers().get(0).getText());
+            String toComparePhone = nullToEmpty(newCompare.getVCard().getTelephoneNumbers().get(0).getText());
 
 
 
