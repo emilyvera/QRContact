@@ -1,4 +1,5 @@
 package com.example.emily.qrcontact;
+
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -20,6 +21,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
+
+import com.example.emily.qrcontact.TinyDB;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -46,19 +49,19 @@ public class Make extends AppCompatActivity {
     final String[] VCardTags = {"VERSION", "PRODID", "N:", "EMAIL", "TEL", "END"};
 
 
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_make);
         Picasso.get().setLoggingEnabled(true);
         final ImageView imageView = (ImageView) findViewById(R.id.imageView);
-        Button refresh = (Button) findViewById(R.id.button);
+        final Button refresh = (Button) findViewById(R.id.button);
         final EditText firstName = (EditText) findViewById(R.id.firstName);
         final EditText lastName = (EditText) findViewById(R.id.lastName);
         final EditText phone = (EditText) findViewById(R.id.phone);
         final EditText email = (EditText) findViewById(R.id.email);
         final EditText profileName = findViewById(R.id.profileName);
+        final TinyDB tinyDB = new TinyDB(this);
 
         refresh.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -73,11 +76,20 @@ public class Make extends AppCompatActivity {
                 Picasso.get().load("https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=" + fullContact).into(imageView);
 
 
-
-
             }
         });
         loadImage(imageView);
+
+        final ListView profileList = findViewById(R.id.profileList);
+        final Button saveProfile = findViewById(R.id.saveProfile);
+        final Button chooseProfile = findViewById(R.id.chooseProfile);
+        ArrayList<ProfileSerialized> passer = new ArrayList<>();
+        try {
+            passer = getArrayList("Profiles");
+        } catch (Exception e) {
+            Log.d("Persistence", e.toString());
+        }
+        final ArrayList<Profile> profileArrayList = SerializeableToProfile(passer);
 
         final BottomNavigationView bottomNavigationView = (BottomNavigationView) findViewById(R.id.navigation);
         Menu menu = bottomNavigationView.getMenu();
@@ -89,12 +101,19 @@ public class Make extends AppCompatActivity {
                 switch (menuItem.getItemId()) {
                     case R.id.navigation_scan:
                         Intent intent1 = new Intent(Make.this, MainActivity.class);
+//                        if (profileArrayList != null) {
+//                            intent1.putExtra("Profiles", profileArrayList);
+//                        }
                         startActivity(intent1);
                         break;
                     case R.id.navigation_make:
                         break;
                     case R.id.navigation_help:
                         Intent intent3 = new Intent(Make.this, Help.class);
+//                        if (profileArrayList != null) {
+//
+//                            intent3.putExtra("Profiles", profileArrayList);
+//                        }
                         startActivity(intent3);
                         break;
                 }
@@ -102,21 +121,6 @@ public class Make extends AppCompatActivity {
                 return false;
             }
         });
-
-
-        final ListView profileList = findViewById(R.id.profileList);
-        final Button saveProfile = findViewById(R.id.saveProfile);
-        final Button chooseProfile = findViewById(R.id.chooseProfile);
-        ArrayList<Profile> initialArrayList = new ArrayList<>();
-        try {
-            if (getArrayList("Profiles") != null) {
-                initialArrayList = getArrayList("Profiles");
-            }
-        } catch (Exception e) {
-            Log.d("Persistence", e.toString() + "\n");
-            e.printStackTrace();
-        }
-        final ArrayList<Profile> profileArrayList = initialArrayList;
 
 
         final ConstraintLayout profileLayout = findViewById(R.id.profileLayout);
@@ -140,6 +144,7 @@ public class Make extends AppCompatActivity {
                 bottomNavigationView.setVisibility(View.GONE);
                 imageView.setVisibility(View.GONE);
                 profileList.setVisibility(View.VISIBLE);
+
             }
         });
 
@@ -152,11 +157,14 @@ public class Make extends AppCompatActivity {
                 email.setText(temp.getVCard().getEmails().get(0).getValue());
                 phone.setText(temp.getVCard().getTelephoneNumbers().get(0).getText());
                 profileName.setText(temp.getProfileName());
+                refresh(firstName, lastName, email, phone, imageView);
+
 
                 profileLayout.setVisibility(View.VISIBLE);
                 bottomNavigationView.setVisibility(View.VISIBLE);
                 imageView.setVisibility(View.VISIBLE);
                 profileList.setVisibility(View.GONE);
+
 
 
             }
@@ -189,34 +197,36 @@ public class Make extends AppCompatActivity {
                 }
 
 
-
                 profileArrayList.add(toAddToList);
-                saveArrayList(profileArrayList, "Profiles");
+                ArrayList<ProfileSerialized> thirdHand = ProfileToSerializeable(profileArrayList);
+
+                saveArrayList(thirdHand, "Profiles");
 
                 //Log.d("Persistence", "Saved Data");
             }
         });
 
 
-
-
     }
 
-    private void saveArrayList(ArrayList<Profile> profileArrayList, String key) {
+    private void saveArrayList(ArrayList<ProfileSerialized> profileArrayList, String key) {
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this.getApplicationContext());
         SharedPreferences.Editor editor = prefs.edit();
         Gson gson = new Gson();
         String json = gson.toJson(profileArrayList);
         editor.putString(key, json);
+        editor.apply();
         editor.commit();
     }
 
-    private ArrayList<Profile> getArrayList(String key) {
+    private ArrayList<ProfileSerialized> getArrayList(String key) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         Gson gson = new Gson();
         String json = prefs.getString(key, null);
-        Type type = new TypeToken<ArrayList<Profile>>() {}.getType();
-        Log.d("Persistence",type.toString());
+        Type type = new TypeToken<ArrayList<ProfileSerialized>>() {
+        }.getType();
+        Log.d("Persistence", type.toString());
         return gson.fromJson(json, type);
     }
 
@@ -245,14 +255,13 @@ public class Make extends AppCompatActivity {
         return newFullContact;
 
 
-
-
     }
 
 
     private void loadImage(ImageView toSet) {
         Log.d("fucntion", "Default code");
-        Picasso.get().load("https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=Example").into(toSet);
+
+//        Picasso.get().load("https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + Ezvcard.write(Vcard).version(VCardVersion.V3_0).go()").into(toSet);
     }
 
     private VCard makeVCard(EditText firstName, EditText lastName, EditText email, EditText phone) {
@@ -277,7 +286,7 @@ public class Make extends AppCompatActivity {
         return vcard;
     }
 
-    public class Profile implements Serializable {
+    public class Profile {
 
         private VCard vCard;
         private String profileName;
@@ -302,20 +311,20 @@ public class Make extends AppCompatActivity {
             }
         }
 
+        public Profile(ProfileSerialized toPass) {
+            vCard = makeVCard(toPass.getFirstName(), toPass.getLastName(), toPass.getEmail()
+                    , toPass.getPhone());
+            profileName = toPass.getProfileName();
+        }
+
         public Profile(VCard toVCard, String toProfileName) {
-            super();
             vCard = toVCard;
 
             profileName = toProfileName;
         }
 
-        private void readObject(ObjectInputStream aInputStream) throws ClassNotFoundException, IOException {
-            vCard = makeVCard(aInputStream.readUTF(), aInputStream.readUTF(), aInputStream.readUTF(), aInputStream.readUTF());
-            profileName = aInputStream.readUTF();
 
-        }
-
-        private void writeObject(ObjectOutputStream aOutputStream)throws IOException {
+        private void writeObject(ObjectOutputStream aOutputStream) throws IOException {
             aOutputStream.writeUTF(vCard.getStructuredName().getGiven());
             aOutputStream.writeUTF(vCard.getStructuredName().getFamily());
             aOutputStream.writeUTF(vCard.getEmails().get(0).toString());
@@ -339,9 +348,6 @@ public class Make extends AppCompatActivity {
             String toComparePhone = nullToEmpty(newCompare.getVCard().getTelephoneNumbers().get(0).getText());
 
 
-
-
-
             return (firstName.equals(toCompareFirstName) && lastName.equals(toCompareLastName) && email.equals(toCompareEmail)
                     && phone.equals(toComparePhone) && profileName.equals(newCompare.getProfileName()));
 
@@ -357,16 +363,90 @@ public class Make extends AppCompatActivity {
 
 
         public String toString() {
-            return profileName;
+            return profileName + " - " + vCard.getStructuredName().getGiven() + " " + vCard.getStructuredName().getFamily();
+
         }
 
 
     }
 
+    public class ProfileSerialized {
+        private String firstName;
+        private String lastName;
+        private String email;
+        private String phone;
+        private String profileName;
+
+        public String getFirstName() {
+            return firstName;
+        }
+
+        public String getLastName() {
+            return lastName;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public String getProfileName() {
+            return profileName;
+        }
+
+        public ProfileSerialized(Profile toPass) {
+            firstName = toPass.getVCard().getStructuredName().getGiven();
+            lastName = toPass.getVCard().getStructuredName().getFamily();
+            email = toPass.getVCard().getEmails().get(0).getValue();
+            phone = toPass.getVCard().getTelephoneNumbers().get(0).getText();
+            profileName = toPass.getProfileName();
+        }
+
+        public Profile makeProfile() {
+            return new Profile(makeVCard(firstName, lastName, email, phone), profileName);
+        }
+    }
+
+    public Profile ProfileFromSerializable(ProfileSerialized value) {
+        return new Profile(makeVCard(value.getFirstName(), value.getLastName(), value.getEmail(), value.getPhone())
+                , value.getProfileName());
+    }
+
+    public ArrayList<ProfileSerialized> ProfileToSerializeable(ArrayList<Profile> toPass) {
+        ArrayList<ProfileSerialized> toReturn = new ArrayList<>();
+        for (Profile value : toPass) {
+            toReturn.add(new ProfileSerialized(value));
+        }
+        return toReturn;
+    }
+
+    public ArrayList<Profile> SerializeableToProfile(ArrayList<ProfileSerialized> toPass) {
+        ArrayList<Profile> regularProfiles = new ArrayList<>();
+
+        for (int x = 0; x < toPass.size(); x++) {
+
+            Log.d("Persistence", regularProfiles.getClass().toString());
+            regularProfiles.add(new Profile(toPass.get(x)));
+
+        }
+
+        return regularProfiles;
+
+    }
 
 
+    public void refresh(EditText firstName, EditText lastName, EditText email, EditText phone, ImageView imageView) {
+        VCard vcard = makeVCard(firstName, lastName, email, phone);
 
+        String fullContact = Ezvcard.write(vcard).version(VCardVersion.V3_0).go();
 
+        fullContact = getUrlVCard(vcard);
 
+        Log.d("myTag", "Registered Click");
+        Picasso.get().load("https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=" + fullContact).into(imageView);
+    }
 
 }

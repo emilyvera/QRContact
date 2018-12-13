@@ -172,6 +172,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+//        ArrayList<Make.Profile> passer = new ArrayList<>();
+//
+//        if (getIntent().getExtras() != null) {
+//            passer = (ArrayList<Make.Profile>) getIntent().getExtras().get("Profiles");
+//        }
+
+
+//        final ArrayList<Make.Profile> profiles = passer;
+
         BottomNavigationView bottomNavigationView = (BottomNavigationView) findViewById(R.id.navigation);
         Menu menu = bottomNavigationView.getMenu();
         MenuItem menuItem = menu.getItem(0);
@@ -184,10 +193,16 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case R.id.navigation_make:
                         Intent intent2 = new Intent(MainActivity.this, Make.class);
+//                        if (profiles != null) {
+//                            intent2.putExtra("Profiles", profiles);
+//                        }
                         startActivity(intent2);
                         break;
                     case R.id.navigation_help:
                         Intent intent3 = new Intent(MainActivity.this, Help.class);
+//                        if (profiles != null) {
+//                            intent3.putExtra("Profiles", profiles);
+//                        }
                         startActivity(intent3);
                         break;
                 }
